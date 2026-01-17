@@ -273,7 +273,7 @@ def delete(session_id: str = typer.Argument(..., help="Session ID to delete")):
     except Exception as e:
         console.print(f"[red]❌ Error: {e}[/red]")
         raise typer.Exit(1)
-
+    
 
 @app.command()
 def config(
@@ -301,4 +301,20 @@ def config(
         if key == 'timeout':
             try:
                 config['timeout'] = int(value)
-           
+            except ValueError:
+                console.print(f"[red]❌ Invalid value for timeout: must be an integer[/red]")
+                raise typer.Exit(1)
+        elif key == 'output_path':
+            config['output_path'] = value
+        else:
+            console.print(f"[red]❌ Invalid key: {key}. Use 'timeout' or 'output_path'[/red]")
+            raise typer.Exit(1)
+        
+        # Save config
+        with open(config_file, 'w') as f:
+            json.dump(config, f, indent=2)
+        console.print(f"[green]✅ Set {key} to {value}[/green]")
+
+
+if __name__ == "__main__":
+    app()
