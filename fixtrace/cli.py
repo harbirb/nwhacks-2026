@@ -174,13 +174,22 @@ def stop(force: bool = typer.Option(False, "--force", help="Force stop even if p
 
 
 @app.command()
-def list():
+def list(
+    name: str = typer.Option(None, "--name", help="Filter sessions by name (partial match, case-insensitive)"),
+    status: str = typer.Option(None, "--status", help="Filter sessions by status (exact match, case-insensitive)"),
+):
     """List all captured sessions."""
     try:
         sessions = session.list_sessions()
         
+        # Apply filters
+        if name:
+            sessions = [s for s in sessions if name.lower() in s["name"].lower()]
+        if status:
+            sessions = [s for s in sessions if s["status"].lower() == status.lower()]
+        
         if not sessions:
-            console.print("[dim]No sessions yet[/dim]")
+            console.print("[dim]No sessions match the filters[/dim]")
             return
         
         table = Table(title="FixTrace Sessions")
