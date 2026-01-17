@@ -7,6 +7,7 @@ from pathlib import Path
 import json
 import threading
 import time
+import os
 
 from . import session, capture, parser, markdown
 
@@ -27,8 +28,11 @@ def auto_stop_session(session_id, timeout_seconds):
         session_dir = session.get_session_dir(session_id)
         
         # Kill the script process
-        if pid:
-            capture.kill_process_by_pid(pid)
+        if pid and pid > 0:
+            try:
+                capture.kill_process_by_pid(pid)
+            except:
+                pass
         
         # Clear active PID
         session.clear_active_pid()
@@ -63,14 +67,8 @@ def start(
         console.print(f"[green]✅ Session started: {session_id}[/green]")
         console.print(f"[dim]Recording to: {session_dir}[/dim]")
         console.print(f"[dim]Auto-stop timeout: {timeout}s ({timeout//60} min)[/dim]")
-        
-        # Start capture
-        proc, raw_file = capture.start_capture(session_dir)
-        
-        # Save active PID
-        session.save_active_pid(session_id, proc.pid)
-        
-        console.print(f"[dim]Run 'fixtrace stop' when done[/dim]")
+        console.print(f"[yellow]You are now inside the recording session.[/yellow]")
+        console.print(f"[yellow]Type 'exit' or run 'fixtrace stop' in another terminal when done.[/yellow]")
         
         # Start auto-stop timer in background
         timer_thread = threading.Thread(
@@ -80,14 +78,43 @@ def start(
         )
         timer_thread.start()
         
-        # Keep process alive
-        proc.wait()
+        # Save session ID and PID (will be set once script starts)
+        # Use a dummy PID for now - it will be updated when script runs
+        session.save_active_pid(session_id, os.getpid())
+        
+        # Start capture - this will block and user interacts with script directly
+        proc, raw_file = capture.start_capture(session_dir)
+        
+        # Script session ended - parse and generate docs
+        if raw_file.exists() and raw_file.stat().st_size > 0:
+            console.print(f"\n[green]✅ Session recording ended[/green]")
+            
+            # Read metadata
+            metadata_file = session_dir / "metadata.json"
+            metadata = {}
+            if metadata_file.exists():
+                with open(metadata_file, 'r') as f:
+                    metadata = json.load(f)
+            
+            # Parse and generate
+            jsonl_file = session_dir / "events.jsonl"
+            console.print("[dim]Parsing session...[/dim]")
+            parser.parse_raw_to_jsonl(raw_file, jsonl_file)
+            
+            console.print("[dim]Generating documentation...[/dim]")
+            md_file = markdown.generate_markdown(session_id, session_dir, metadata)
+            
+            console.print(f"[green]✅ Session complete![/green]")
+            console.print(f"[cyan]Docs saved to: {md_file}[/cyan]")
+        
+        # Clear active PID
+        session.clear_active_pid()
         
     except RuntimeError as e:
-        console.print(f"[red]❌ Error: {e}[/red]", err=True)
+        console.print(f"[red]❌ Error: {e}[/red]")
         raise typer.Exit(1)
     except Exception as e:
-        console.print(f"[red]❌ Unexpected error: {e}[/red]", err=True)
+        console.print(f"[red]❌ Unexpected error: {e}[/red]")
         raise typer.Exit(1)
 
 
@@ -98,7 +125,7 @@ def stop(force: bool = typer.Option(False, "--force", help="Force stop even if p
         session_id, pid = session.get_active_session()
         
         if not session_id:
-            console.print("[red]❌ No active session running[/red]", err=True)
+            console.print("[red]❌ No active session running[/red]")
             raise typer.Exit(1)
         
         console.print(f"[yellow]Stopping session {session_id}...[/yellow]")
@@ -142,7 +169,7 @@ def stop(force: bool = typer.Option(False, "--force", help="Force stop even if p
         console.print(f"[cyan]Docs saved to: {md_file}[/cyan]")
         
     except Exception as e:
-        console.print(f"[red]❌ Error: {e}[/red]", err=True)
+        console.print(f"[red]❌ Error: {e}[/red]")
         raise typer.Exit(1)
 
 
@@ -173,7 +200,7 @@ def list():
         console.print(table)
         
     except Exception as e:
-        console.print(f"[red]❌ Error: {e}[/red]", err=True)
+        console.print(f"[red]❌ Error: {e}[/red]")
         raise typer.Exit(1)
 
 
@@ -184,7 +211,7 @@ def generate(session_id: str = typer.Argument(..., help="Session ID to regenerat
         session_dir = session.get_session_dir(session_id)
         
         if not session_dir.exists():
-            console.print(f"[red]❌ Session not found: {session_id}[/red]", err=True)
+            console.print(f"[red]❌ Session not found: {session_id}[/red]")
             raise typer.Exit(1)
         
         metadata_file = session_dir / "metadata.json"
@@ -200,7 +227,7 @@ def generate(session_id: str = typer.Argument(..., help="Session ID to regenerat
         console.print(f"[cyan]Saved to: {md_file}[/cyan]")
         
     except Exception as e:
-        console.print(f"[red]❌ Error: {e}[/red]", err=True)
+        console.print(f"[red]❌ Error: {e}[/red]")
         raise typer.Exit(1)
 
 
