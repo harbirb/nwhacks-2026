@@ -5,6 +5,7 @@ Summary: Passively capture terminal troubleshooting sessions and auto-generate d
 Requires-Python: >=3.8
 Requires-Dist: typer>=0.9.0
 Requires-Dist: rich>=13.0.0
+Requires-Dist: google-genai>=1.0.0
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Dynamic: requires-python
