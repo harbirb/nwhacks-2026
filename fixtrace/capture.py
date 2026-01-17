@@ -14,11 +14,25 @@ def start_capture(session_dir):
     """
     raw_file = session_dir / "raw.txt"
     
-    # Start script command - this replaces the current shell
-    # The user is now inside the script session
-    os.system(f"script -q {raw_file}")
+    # Determine flags based on platform
+    # macOS uses -F for immediate flush, Linux uses -f
+    import sys
+    flush_flag = "-F" if sys.platform == "darwin" else "-f"
     
-    return None, raw_file
+    # Start script command using Popen to capture the process ID
+    # This allows us to kill the specific 'script' process later
+    try:
+        proc = subprocess.Popen(
+            ["script", "-q", flush_flag, str(raw_file)],
+            stdin=None,  # Inherit stdin
+            stdout=None, # Inherit stdout
+            stderr=None, # Inherit stderr
+            preexec_fn=os.setsid # Start in new session to avoid signal propagation issues
+        )
+        return proc, raw_file
+    except Exception as e:
+        print(f"Error starting capture: {e}")
+        return None, raw_file
 
 
 def stop_capture(proc):
