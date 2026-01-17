@@ -25,34 +25,12 @@ def auto_stop_session(session_id, timeout_seconds):
         console.print(f"\n[yellow]⏱️  Session timeout reached ({timeout_seconds}s)[/yellow]")
         console.print("[yellow]Auto-stopping session...[/yellow]")
         
-        session_dir = session.get_session_dir(session_id)
-        
-        # Kill the script process
+        # Kill the script process - this will cause the main thread to wake up
         if pid and pid > 0:
             try:
                 capture.kill_process_by_pid(pid)
             except:
                 pass
-        
-        # Clear active PID
-        session.clear_active_pid()
-        
-        # Read metadata
-        metadata_file = session_dir / "metadata.json"
-        metadata = {}
-        if metadata_file.exists():
-            with open(metadata_file, 'r') as f:
-                metadata = json.load(f)
-        
-        # Parse and generate
-        raw_file = session_dir / "raw.txt"
-        jsonl_file = session_dir / "events.jsonl"
-        
-        if raw_file.exists():
-            parser.parse_raw_to_jsonl(raw_file, jsonl_file)
-        
-        md_file = markdown.generate_markdown(session_id, session_dir, metadata)
-        console.print(f"[cyan]Docs auto-saved to: {md_file}[/cyan]")
 
 
 @app.command()
@@ -82,6 +60,16 @@ def start(
         console.print(f"[yellow]You are now inside the recording session.[/yellow]")
         console.print(f"[yellow]Type 'exit' or run 'fixtrace stop' in another terminal when done.[/yellow]")
         
+        # Start capture - this returns the subprocess
+        proc, raw_file = capture.start_capture(session_dir)
+        
+        if not proc:
+            console.print("[red]❌ Failed to start capture process[/red]")
+            raise typer.Exit(1)
+
+        # Save session ID and the PID of the CAPTURE process (script)
+        session.save_active_pid(session_id, proc.pid)
+        
         # Start auto-stop timer in background
         timer_thread = threading.Thread(
             target=auto_stop_session,
@@ -90,12 +78,12 @@ def start(
         )
         timer_thread.start()
         
-        # Save session ID and PID (will be set once script starts)
-        # Use a dummy PID for now - it will be updated when script runs
-        session.save_active_pid(session_id, os.getpid())
+        # Wait for the process to finish (blocking)
+        # This will return when user types 'exit' or 'fixtrace stop' kills the process
+        proc.wait()
         
-        # Start capture - this will block and user interacts with script directly
-        proc, raw_file = capture.start_capture(session_dir)
+        # Clear active PID immediately
+        session.clear_active_pid()
         
         # Script session ended - parse and generate docs
         if raw_file.exists() and raw_file.stat().st_size > 0:
@@ -119,9 +107,6 @@ def start(
             console.print(f"[green]✅ Session complete![/green]")
             console.print(f"[cyan]Docs saved to: {md_file}[/cyan]")
         
-        # Clear active PID
-        session.clear_active_pid()
-        
     except RuntimeError as e:
         console.print(f"[red]❌ Error: {e}[/red]")
         raise typer.Exit(1)
@@ -132,7 +117,7 @@ def start(
 
 @app.command()
 def stop(force: bool = typer.Option(False, "--force", help="Force stop even if process is already dead")):
-    """Stop the active capture session and generate docs."""
+    """Stop the active capture session."""
     try:
         session_id, pid = session.get_active_session()
         
@@ -142,12 +127,12 @@ def stop(force: bool = typer.Option(False, "--force", help="Force stop even if p
         
         console.print(f"[yellow]Stopping session {session_id}...[/yellow]")
         
-        session_dir = session.get_session_dir(session_id)
-        
         # Kill the script process
         if pid:
             try:
                 capture.kill_process_by_pid(pid)
+                console.print(f"[green]Session stopped.[/green]")
+                console.print(f"[dim]The original terminal will now process the output.[/dim]")
             except Exception as e:
                 if not force:
                     console.print(f"[red]❌ Error: Process not found. Use --force to clear the session anyway[/red]", err=True)
@@ -155,30 +140,9 @@ def stop(force: bool = typer.Option(False, "--force", help="Force stop even if p
                 else:
                     console.print(f"[yellow]⚠ Process already dead, clearing session[/yellow]")
         
-        # Clear active PID
-        session.clear_active_pid()
-        
-        # Read metadata
-        metadata_file = session_dir / "metadata.json"
-        metadata = {}
-        if metadata_file.exists():
-            with open(metadata_file, 'r') as f:
-                metadata = json.load(f)
-        
-        # Parse raw to JSONL
-        raw_file = session_dir / "raw.txt"
-        jsonl_file = session_dir / "events.jsonl"
-        
-        if raw_file.exists():
-            console.print("[dim]Parsing session...[/dim]")
-            parser.parse_raw_to_jsonl(raw_file, jsonl_file)
-        
-        # Generate markdown
-        console.print("[dim]Generating documentation...[/dim]")
-        md_file = markdown.generate_markdown(session_id, session_dir, metadata)
-        
-        console.print(f"[green]✅ Session complete![/green]")
-        console.print(f"[cyan]Docs saved to: {md_file}[/cyan]")
+        # If forced, we might need to clean up manually, but usually killing the pid is enough.
+        if force:
+             session.clear_active_pid()
         
     except Exception as e:
         console.print(f"[red]❌ Error: {e}[/red]")
