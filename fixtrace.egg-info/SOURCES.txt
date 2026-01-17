@@ -1,0 +1,15 @@
+README.md
+pyproject.toml
+setup.py
+fixtrace/__init__.py
+fixtrace/capture.py
+fixtrace/cli.py
+fixtrace/markdown.py
+fixtrace/parser.py
+fixtrace/session.py
+fixtrace.egg-info/PKG-INFO
+fixtrace.egg-info/SOURCES.txt
+fixtrace.egg-info/dependency_links.txt
+fixtrace.egg-info/entry_points.txt
+fixtrace.egg-info/requires.txt
+fixtrace.egg-info/top_level.txt
