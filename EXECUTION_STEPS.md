@@ -59,7 +59,31 @@ Commands:
   stop      Stop the active capture session and generate docs.
 ```
 
-### 6. Update .gitignore (optional but recommended)
+### 6. Add fixtrace to PATH (so it works from anywhere)
+
+Open your shell configuration file:
+
+```bash
+nano ~/.zshrc
+```
+
+Add this line at the bottom:
+
+```bash
+export PATH="/Users/harbir/Projects/nwhacks-2026/.venv/bin:$PATH"
+```
+
+Save the file (Ctrl+X, then Y, then Enter).
+
+Reload your shell:
+
+```bash
+source ~/.zshrc
+```
+
+Now `fixtrace` will work from **any directory**!
+
+### 7. Update .gitignore (optional but recommended)
 
 Add this to your `.gitignore` to keep the venv out of git:
 
@@ -73,7 +97,18 @@ build/
 .DS_Store
 ```
 
-### 7. Deactivate venv (when done)
+### 8. Verify PATH setup
+
+Test that fixtrace works from anywhere:
+
+```bash
+cd ~
+fixtrace --help
+```
+
+If you see the help output, you're all set! ✅
+
+### 9. Deactivate venv (when done with work)
 
 To exit the virtual environment later:
 
@@ -81,11 +116,13 @@ To exit the virtual environment later:
 deactivate
 ```
 
-To reactivate it:
+To reactivate it later:
 
 ```bash
 source .venv/bin/activate
 ```
+
+**Note**: With the PATH setup, you don't _need_ to activate the venv, but it's good practice for development.
 
 ---
 
