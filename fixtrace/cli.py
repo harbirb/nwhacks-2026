@@ -92,7 +92,7 @@ def start(
 
 
 @app.command()
-def stop():
+def stop(force: bool = typer.Option(False, "--force", help="Force stop even if process is already dead")):
     """Stop the active capture session and generate docs."""
     try:
         session_id, pid = session.get_active_session()
@@ -107,7 +107,14 @@ def stop():
         
         # Kill the script process
         if pid:
-            capture.kill_process_by_pid(pid)
+            try:
+                capture.kill_process_by_pid(pid)
+            except Exception as e:
+                if not force:
+                    console.print(f"[red]❌ Error: Process not found. Use --force to clear the session anyway[/red]", err=True)
+                    raise typer.Exit(1)
+                else:
+                    console.print(f"[yellow]⚠ Process already dead, clearing session[/yellow]")
         
         # Clear active PID
         session.clear_active_pid()
