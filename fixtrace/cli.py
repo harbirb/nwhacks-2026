@@ -8,6 +8,8 @@ import json
 import threading
 import time
 import os
+import sys
+import termios
 
 from . import session, capture, parser, markdown
 
@@ -66,9 +68,20 @@ def start(
         )
         timer_thread.start()
         
-        # Wait for the process to finish (blocking)
-        # This will return when user types 'exit' or 'fixtrace stop' kills the process
-        proc.wait()
+        # Save terminal settings
+        try:
+            old_tty_attrs = termios.tcgetattr(sys.stdin)
+        except:
+            old_tty_attrs = None
+        
+        try:
+            # Wait for the process to finish (blocking)
+            # This will return when user types 'exit' or 'fixtrace stop' kills the process
+            proc.wait()
+        finally:
+            # Restore terminal settings
+            if old_tty_attrs:
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_tty_attrs)
         
         # Clear active PID immediately
         session.clear_active_pid()
