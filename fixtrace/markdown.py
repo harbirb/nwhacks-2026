@@ -4,7 +4,12 @@ from pathlib import Path
 from datetime import datetime
 import json
 import os
+
+from dotenv import load_dotenv
 from google import genai
+
+# Load .env file from current directory or parent directories
+load_dotenv()
 
 
 GEMINI_PROMPT = """
@@ -93,7 +98,7 @@ def _generate_summary_with_gemini(session_log):
         
         prompt = GEMINI_PROMPT + session_log
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-2.0-flash', 
             contents=prompt
         )
         
