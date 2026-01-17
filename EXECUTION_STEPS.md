@@ -140,10 +140,21 @@ fixtrace start --name "test-session"
 ```
 ✅ Session started: 2026-01-17-abc123
 Recording to: /Users/harbir/.fixtrace/sessions/2026-01-17-abc123
+Auto-stop timeout: 1800s (30 min)
 Run 'fixtrace stop' when done
 ```
 
 The command will now be recording your terminal. The prompt will change - you're now inside a `script` session.
+
+**Note about timeout**: By default, sessions auto-stop after 30 minutes if you forget to stop them manually. You can customize this:
+
+```bash
+# Custom timeout: auto-stop after 5 minutes (300 seconds)
+fixtrace start --name "quick-test" --timeout 300
+
+# Disable timeout (very long): 8 hours = 28800 seconds
+fixtrace start --name "long-session" --timeout 28800
+```
 
 ```bash
 # Run some test commands

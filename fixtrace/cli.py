@@ -5,6 +5,8 @@ from rich.console import Console
 from rich.table import Table
 from pathlib import Path
 import json
+import threading
+import time
 
 from . import session, capture, parser, markdown
 
@@ -12,14 +14,55 @@ app = typer.Typer(help="FixTrace: Capture terminal sessions and auto-generate do
 console = Console()
 
 
+def auto_stop_session(session_id, timeout_seconds):
+    """Auto-stop a session after timeout expires."""
+    time.sleep(timeout_seconds)
+    
+    # Check if session is still active
+    active_id, pid = session.get_active_session()
+    if active_id == session_id:
+        console.print(f"\n[yellow]⏱️  Session timeout reached ({timeout_seconds}s)[/yellow]")
+        console.print("[yellow]Auto-stopping session...[/yellow]")
+        
+        session_dir = session.get_session_dir(session_id)
+        
+        # Kill the script process
+        if pid:
+            capture.kill_process_by_pid(pid)
+        
+        # Clear active PID
+        session.clear_active_pid()
+        
+        # Read metadata
+        metadata_file = session_dir / "metadata.json"
+        metadata = {}
+        if metadata_file.exists():
+            with open(metadata_file, 'r') as f:
+                metadata = json.load(f)
+        
+        # Parse and generate
+        raw_file = session_dir / "raw.txt"
+        jsonl_file = session_dir / "events.jsonl"
+        
+        if raw_file.exists():
+            parser.parse_raw_to_jsonl(raw_file, jsonl_file)
+        
+        md_file = markdown.generate_markdown(session_id, session_dir, metadata)
+        console.print(f"[cyan]Docs auto-saved to: {md_file}[/cyan]")
+
+
 @app.command()
-def start(name: str = typer.Option(None, "--name", help="Session name (optional)")):
+def start(
+    name: str = typer.Option(None, "--name", help="Session name (optional)"),
+    timeout: int = typer.Option(1800, "--timeout", help="Auto-stop after N seconds (default: 1800 = 30min)"),
+):
     """Start a new capture session."""
     try:
         session_id, session_dir = session.create_session(name)
         
         console.print(f"[green]✅ Session started: {session_id}[/green]")
         console.print(f"[dim]Recording to: {session_dir}[/dim]")
+        console.print(f"[dim]Auto-stop timeout: {timeout}s ({timeout//60} min)[/dim]")
         
         # Start capture
         proc, raw_file = capture.start_capture(session_dir)
@@ -28,6 +71,14 @@ def start(name: str = typer.Option(None, "--name", help="Session name (optional)
         session.save_active_pid(session_id, proc.pid)
         
         console.print(f"[dim]Run 'fixtrace stop' when done[/dim]")
+        
+        # Start auto-stop timer in background
+        timer_thread = threading.Thread(
+            target=auto_stop_session,
+            args=(session_id, timeout),
+            daemon=True,
+        )
+        timer_thread.start()
         
         # Keep process alive
         proc.wait()
