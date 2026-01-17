@@ -205,8 +205,8 @@ def list(
             return
         
         table = Table(title="FixTrace Sessions")
-        table.add_column("Session ID", style="cyan")
-        table.add_column("Name", style="magenta")
+        table.add_column("Session ID", style="cyan", max_width=12, overflow="ellipsis")
+        table.add_column("Name", style="magenta", max_width=15, overflow="ellipsis")
         table.add_column("Started", style="green")
         table.add_column("Status", style="yellow")
         
