@@ -58,9 +58,21 @@ def auto_stop_session(session_id, timeout_seconds):
 @app.command()
 def start(
     name: str = typer.Option(None, "--name", help="Session name (optional)"),
-    timeout: int = typer.Option(1800, "--timeout", help="Auto-stop after N seconds (default: 1800 = 30min)"),
+    timeout: int = typer.Option(None, "--timeout", help="Auto-stop after N seconds (default: from config or 1800 = 30min)"),
 ):
     """Start a new capture session."""
+    # Load config for defaults
+    config_file = Path(__file__).parent / ".fixtrace_config.json"
+    config = {}
+    if config_file.exists():
+        try:
+            with open(config_file, 'r') as f:
+                config = json.load(f)
+        except:
+            pass
+    if timeout is None:
+        timeout = config.get('timeout', 1800)
+    
     try:
         session_id, session_dir = session.create_session(name)
         
@@ -262,5 +274,31 @@ def delete(session_id: str = typer.Argument(..., help="Session ID to delete")):
         console.print(f"[red]❌ Error: {e}[/red]")
         raise typer.Exit(1)
 
-if __name__ == "__main__":
-    app()
+
+@app.command()
+def config(
+    key: str = typer.Argument(..., help="Config key: timeout or output_path"),
+    value: str = typer.Argument(None, help="Value to set (omit to get current value)"),
+):
+    """Get or set configuration values."""
+    config_file = Path(__file__).parent / ".fixtrace_config.json"
+    config = {}
+    if config_file.exists():
+        try:
+            with open(config_file, 'r') as f:
+                config = json.load(f)
+        except:
+            pass
+    
+    if value is None:
+        # Get current value
+        if key in config:
+            console.print(f"{key}: {config[key]}")
+        else:
+            console.print(f"{key}: not set")
+    else:
+        # Set value
+        if key == 'timeout':
+            try:
+                config['timeout'] = int(value)
+           
