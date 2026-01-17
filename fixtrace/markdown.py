@@ -9,7 +9,7 @@ def generate_markdown(session_id, session_dir, metadata):
     """Generate markdown documentation from captured session."""
     
     jsonl_file = session_dir / "events.jsonl"
-    markdown_file = session_dir / "README.md"
+    markdown_file = session_dir / "summary.md"
     
     # Parse events
     events = []
