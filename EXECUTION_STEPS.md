@@ -24,7 +24,23 @@ source .venv/bin/activate
 
 You should see `(.venv)` at the beginning of your terminal prompt.
 
-### 4. Install dependencies
+### 4. Set up environment variables
+
+Copy the example environment file and add your Gemini API key:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` and add your API key:
+
+```
+GEMINI_API_KEY=your_actual_api_key_here
+```
+
+You can get a Gemini API key from: https://aistudio.google.com/app/apikey
+
+### 5. Install dependencies
 
 ```bash
 pip install -e .
@@ -83,7 +99,7 @@ source ~/.zshrc
 
 Now `fixtrace` will work from **any directory**!
 
-### 7. Update .gitignore (optional but recommended)
+### 8. Update .gitignore (optional but recommended)
 
 Add this to your `.gitignore` to keep the venv out of git:
 
@@ -95,6 +111,7 @@ __pycache__/
 dist/
 build/
 .DS_Store
+.env
 ```
 
 ### 8. Verify PATH setup
