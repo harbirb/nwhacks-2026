@@ -141,3 +141,16 @@ def parse_jsonl(jsonl_file):
         pass
     
     return events
+
+
+def build_session_log(events):
+    """Build a readable session log from events."""
+    log_lines = []
+    for event in events:
+        if event.get('type') == 'command':
+            log_lines.append(f"$ {event.get('command', '')}")
+        elif event.get('type') == 'output':
+            content = event.get('content', '')
+            if content:
+                log_lines.append(content)
+    return '\n'.join(log_lines)

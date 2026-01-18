@@ -1,4 +1,4 @@
-"""CLI layer: Typer commands for start, stop, list, generate."""
+"CLI layer: Typer commands for start, stop, list, generate."
 
 import typer
 from rich.console import Console
@@ -11,7 +11,9 @@ import os
 import sys
 import termios
 
-from . import session, capture, parser, markdown
+from typing import List, Optional
+
+from . import session, capture, parser, markdown, ai
 
 app = typer.Typer(help="FixTrace: Capture terminal sessions and auto-generate docs")
 console = Console()
@@ -109,13 +111,14 @@ def start(
                 with open(metadata_file, 'r') as f:
                     metadata = json.load(f)
             
-            # Parse and generate
+            # Parse
             jsonl_file = session_dir / "events.jsonl"
             console.print("[dim]Parsing session...[/dim]")
-            parser.parse_raw_to_jsonl(raw_file, jsonl_file)
+            events = parser.parse_raw_to_jsonl(raw_file, jsonl_file)
             
+            # Generate Basic Markdown
             console.print("[dim]Saving session...[/dim]")
-            md_file = markdown.generate_markdown(session_id, session_dir, metadata, use_ai=False)
+            md_file = markdown.generate_markdown(session_id, session_dir, metadata)
             
             console.print(f"[green]✅ Session complete![/green]")
             console.print(f"[cyan]Session saved to: {md_file}[/cyan]")
@@ -123,11 +126,15 @@ def start(
             # Ask user if they want to generate AI summary
             response = console.input("[bold]Would you like to generate an AI summary? (yes/no): [/bold]").strip().lower()
             if response in ("yes", "y"):
-                console.print("[dim]Generating AI summary...[/dim]")
-                md_file = markdown.generate_markdown(session_id, session_dir, metadata, use_ai=True)
-                console.print(f"[green]✅ AI summary generated![/green]")
-                console.print(f"[cyan]Saved to: {md_file}[/cyan]")
-        
+                with console.status("[bold green]Generating AI summary...[/bold green]"):
+                    log_text = parser.build_session_log(events)
+                    ai_summary, error = ai.generate_summary(log_text)
+                    if ai_summary:
+                        md_file = markdown.generate_markdown(session_id, session_dir, metadata, ai_summary=ai_summary)
+                        console.print(f"[green]✅ AI summary generated![/green]")
+                    else:
+                        console.print(f"[red]❌ AI summary failed: {error}[/red]")
+    
     except RuntimeError as e:
         console.print(f"[red]❌ Error: {e}[/red]")
         raise typer.Exit(1)
@@ -232,11 +239,19 @@ def generate(session_id: str = typer.Argument(..., help="Session ID to regenerat
             with open(metadata_file, 'r') as f:
                 metadata = json.load(f)
         
-        console.print("[dim]Generating AI summary...[/dim]")
-        md_file = markdown.generate_markdown(session_id, session_dir, metadata, use_ai=True)
+        # Read events to build log
+        jsonl_file = session_dir / "events.jsonl"
+        events = parser.parse_jsonl(jsonl_file)
+        log_text = parser.build_session_log(events)
         
-        console.print(f"[green]✅ Documentation regenerated[/green]")
-        console.print(f"[cyan]Saved to: {md_file}[/cyan]")
+        with console.status("[bold green]Generating AI summary...[/bold green]"):
+            ai_summary, error = ai.generate_summary(log_text)
+            if ai_summary:
+                md_file = markdown.generate_markdown(session_id, session_dir, metadata, ai_summary=ai_summary)
+                console.print(f"[green]✅ Documentation regenerated with AI summary[/green]")
+                console.print(f"[cyan]Saved to: {md_file}[/cyan]")
+            else:
+                console.print(f"[red]❌ AI summary failed: {error}[/red]")
         
     except Exception as e:
         console.print(f"[red]❌ Error: {e}[/red]")
@@ -328,7 +343,7 @@ def view(session_id: str = typer.Argument(..., help="Session ID to view folder")
 
 @app.command()
 def ask(
-    question: str = typer.Argument(None, help="Specific question about the session"),
+    question: List[str] = typer.Argument(None, help="Specific question about the session"),
     lines: int = typer.Option(50, "--lines", "-l", help="Number of recent terminal lines to include as context"),
 ):
     """Ask AI for help with the current session or a specific question."""
@@ -349,17 +364,24 @@ def ask(
             session_id = sessions[0]["session_id"]
             console.print(f"[dim]Using latest session: {session_id}[/dim]")
 
-        # 2. Extract context (Scaffold)
+        # 2. Extract context
+        session_dir = session.get_session_dir(session_id)
         console.print(f"[dim]Analyzing last {lines} lines...[/dim]")
         
-        # 3. Dummy response
-        if question:
-            console.print(f"\n[bold]💬 Question:[/bold] {question}")
-            console.print("\n[yellow]AI Response (Scaffold):[/yellow]")
-            console.print("I see you're asking about the session. I'll be able to answer specifically once Gemini integration is complete!")
-        else:
-            console.print("\n[yellow]AI Suggestion (Scaffold):[/yellow]")
-            console.print("It looks like you want a general fix. I'll analyze the logs for errors once Gemini integration is complete!")
+        raw_content = session.get_recent_log_content(session_dir, lines=lines)
+        if not raw_content:
+            console.print("[yellow]⚠️ Log is empty or not found.[/yellow]")
+            return
+
+        # 3. Clean context (strip ANSI)
+        clean_content = parser.clean_text(raw_content)
+
+        # 4. Query AI via ai.py
+        question_str = " ".join(question) if question else None
+        with console.status("[bold green]Asking AI...[/bold green]"):
+            response = ai.query_gemini(clean_content, question_str)
+        
+        console.print(f"\n{response}")
 
     except Exception as e:
         console.print(f"[red]❌ Error: {e}[/red]")

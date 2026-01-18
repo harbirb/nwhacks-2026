@@ -2,6 +2,7 @@ README.md
 pyproject.toml
 setup.py
 fixtrace/__init__.py
+fixtrace/ai.py
 fixtrace/capture.py
 fixtrace/cli.py
 fixtrace/markdown.py

@@ -1,125 +1,15 @@
 """Markdown generator: templates to produce doc-ready output from events."""
 
-from pathlib import Path
-from datetime import datetime
 import json
-import os
 
-from dotenv import load_dotenv
-from google import genai
-
-# Load .env file from current directory or parent directories
-load_dotenv()
-
-
-GEMINI_PROMPT = """
-You are a software engineer helping document a debugging session. The input is a raw terminal log recorded whilesetting up or debugging a project.
-It may contain failed commands, repeated attempts, error messages, and unrelated shell output.
-
-Your job is to:
-- Identify the actual problem the developer was trying to solve
-- Pick out the commands that mattered
-- Summarize the errors that blocked progress
-- Explain the steps that ultimately fixed the issue
-
-Focus on high-signal information only.
-Write the summary so that a future developer could understand what went wrong and how to fix it, without reading the full terminal log.
-
-Review the debugging session and generate a short, structured summary that explains:
-- What problem was being faced
-- Which commands were important
-- What errors occurred
-- What steps resolved the issue
-
-Rules:
-- Ignore duplicated commands unless they show a before/after fix.
-- Ignore shell noise, prompts, timestamps, and unrelated output.
-- Do NOT include secrets, tokens, credentials, or environment values.
-- If secrets appear, replace them with descriptive placeholders like:
-  - API keys → [YOUR-API-KEY-HERE]
-  - Tokens → [YOUR-TOKEN-HERE]
-  - Passwords → [YOUR-PASSWORD-HERE]
-  - Database URLs → [YOUR-DATABASE-URL-HERE]
-  - Other secrets → [YOUR-SECRET-HERE]
-- Be factual: only infer causes if strongly supported by the session.
-- If the root cause is unclear, say "Root cause not definitively identified".
-- Use clear, simple language suitable for onboarding documentation.
-
-Output exactly in the following format:
-
-🛠 FixTrace Summary
-
-Problem:
-- <1–2 bullet points>
-
-Key Commands:
-- <command>
-- <command>
-
-Errors Encountered:
-- <short description of error>
-- <short description of error>
-
-Resolution Steps:
-1. <step>
-2. <step>
-
-Root Cause:
-- <single concise explanation>
-
-Notes:
-- <optional insights, gotchas, or onboarding tips>
-
-Do not include any text outside this format.
-
----
-
-Here is the terminal session log: 
-
-"""
-
-
-def _build_session_log(events):
-    """Build a readable session log from events for Gemini to analyze."""
-    log_lines = []
-    for event in events:
-        if event.get('type') == 'command':
-            log_lines.append(f"$ {event.get('command', '')}")
-        elif event.get('type') == 'output':
-            content = event.get('content', '')
-            if content:
-                log_lines.append(content)
-    return '\n'.join(log_lines)
-
-
-def _generate_summary_with_gemini(session_log):
-    """Use Gemini API to generate a summary of the session."""
-    api_key = os.environ.get('GEMINI_API_KEY')
-    if not api_key:
-        return None, "GEMINI_API_KEY environment variable not set"
-    
-    try:
-        client = genai.Client(api_key=api_key)
-        
-        prompt = GEMINI_PROMPT + session_log
-        response = client.models.generate_content(
-            model='gemini-2.5-flash', 
-            contents=prompt
-        )
-        
-        return response.text, None
-    except Exception as e:
-        return None, f"Gemini API error: {str(e)}"
-
-
-def generate_markdown(session_id, session_dir, metadata, use_ai=False):
+def generate_markdown(session_id, session_dir, metadata, ai_summary=None):
     """Generate markdown documentation from captured session.
     
     Args:
         session_id: The session identifier
         session_dir: Path to the session directory
         metadata: Session metadata dict
-        use_ai: Whether to generate AI summary (default: False)
+        ai_summary: Optional AI-generated summary text to include
     """
     
     jsonl_file = session_dir / "events.jsonl"
@@ -135,15 +25,6 @@ def generate_markdown(session_id, session_dir, metadata, use_ai=False):
     except FileNotFoundError:
         events = []
     
-    # Build session log for Gemini
-    session_log = _build_session_log(events)
-    
-    # Try to generate AI summary only if requested
-    ai_summary = None
-    error = None
-    if use_ai:
-        ai_summary, error = _generate_summary_with_gemini(session_log)
-    
     # Build markdown
     md_lines = []
     md_lines.append(f"# Troubleshooting Session: {metadata.get('name', session_id)}")
@@ -158,9 +39,6 @@ def generate_markdown(session_id, session_dir, metadata, use_ai=False):
     # AI-generated summary
     if ai_summary:
         md_lines.append(ai_summary)
-        md_lines.append("")
-    elif error:
-        md_lines.append(f"> ⚠️ AI summary unavailable: {error}")
         md_lines.append("")
     
     # Footer

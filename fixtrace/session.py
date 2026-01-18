@@ -114,3 +114,18 @@ def list_sessions():
             })
     
     return sessions
+
+def get_recent_log_content(session_dir, lines=50):
+    """Read the last N lines from the session's raw.txt file."""
+    raw_file = session_dir / "raw.txt"
+    if not raw_file.exists():
+        return ""
+    
+    try:
+        # Simple implementation: read all lines and take the last N
+        # For huge files, we'd want to use `seek` from the end, but for MVP this is fine.
+        with open(raw_file, 'r', encoding='utf-8', errors='ignore') as f:
+            all_lines = f.readlines()
+            return "".join(all_lines[-lines:])
+    except Exception as e:
+        return f"[Error reading log: {str(e)}]"
