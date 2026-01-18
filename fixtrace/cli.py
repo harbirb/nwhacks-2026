@@ -119,7 +119,14 @@ def start(
             
             console.print(f"[green]✅ Session complete![/green]")
             console.print(f"[cyan]Session saved to: {md_file}[/cyan]")
-            console.print(f"[dim]Run [bold]fixtrace generate {session_id}[/bold] to generate an AI summary[/dim]")
+            
+            # Ask user if they want to generate AI summary
+            response = console.input("[bold]Would you like to generate an AI summary? (yes/no): [/bold]").strip().lower()
+            if response in ("yes", "y"):
+                console.print("[dim]Generating AI summary...[/dim]")
+                md_file = markdown.generate_markdown(session_id, session_dir, metadata, use_ai=True)
+                console.print(f"[green]✅ AI summary generated![/green]")
+                console.print(f"[cyan]Saved to: {md_file}[/cyan]")
         
     except RuntimeError as e:
         console.print(f"[red]❌ Error: {e}[/red]")
