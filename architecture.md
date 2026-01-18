@@ -19,7 +19,7 @@
 - `~/.fixtrace/sessions/<session-id>/` (session folder).
 - `~/.fixtrace/sessions/<session-id>/raw.txt` (raw script output).
 - `~/.fixtrace/sessions/<session-id>/events.jsonl` (parsed events).
-- `~/.fixtrace/sessions/<session-id>/README.md` (generated docs).
+- `~/.fixtrace/sessions/<session-id>/summary.md` (generated docs).
 - `~/.fixtrace/active_session.pid` (tracks current session: `<session-id>:<pid>`).
 
 ## Session Lifecycle & PID Tracking
@@ -54,12 +54,12 @@ PID tracking via a persistent file on disk solves this.
     • Send SIGTERM to process 12345 (graceful shutdown)
     • Delete PID file
     • Trigger parser + markdown generator
-    ✅ Return: "Session saved to ~/.fixtrace/sessions/2026-01-17-abc123/README.md"
+    ✅ Return: "Session saved to ~/.fixtrace/sessions/2026-01-17-abc123/summary.md"
 
 [4] fixtrace list
     ↓
     • Scan ~/.fixtrace/sessions/
-    • For each session, check if README.md exists (complete) or if active_session.pid references it (running)
+    • For each session, check if summary.md exists (complete) or if active_session.pid references it (running)
     ✅ Return: table of all sessions
 ```
 
