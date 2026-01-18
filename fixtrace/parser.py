@@ -7,7 +7,17 @@ from datetime import datetime
 
 
 def clean_text(text):
-    """Remove ANSI escape codes and handle backspaces."""
+    """Remove ANSI escape codes and handle backspaces.
+    
+    TODO: Add handling for spinner/progress bar animations that use CR (\r)
+    to overwrite lines. Currently, these might pollute the log with multiple
+    "frames" of the animation.
+    
+    Examples to filter:
+    - Docker pulls: ✔ f54f... Pull complete ... 0.4s
+    - Spinners: ⠙ Asking AI...
+    - Progress bars: [===>   ] 20%
+    """
     # 1. Strip OSC sequences (Operating System Commands)
     # Matches \x1B] ... \x07 or \x1B\
     osc_escape = re.compile(r'\x1B\].*?(?:\x07|\x1B\\)')
