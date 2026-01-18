@@ -326,5 +326,45 @@ def view(session_id: str = typer.Argument(..., help="Session ID to view folder")
         raise typer.Exit(1)
 
 
+@app.command()
+def ask(
+    question: str = typer.Argument(None, help="Specific question about the session"),
+    lines: int = typer.Option(50, "--lines", "-l", help="Number of recent terminal lines to include as context"),
+):
+    """Ask AI for help with the current session or a specific question."""
+    try:
+        # 1. Identify session
+        active_id, pid = session.get_active_session()
+        if active_id:
+            session_id = active_id
+            console.print(f"[dim]Using active session: {session_id}[/dim]")
+        else:
+            # Fallback to latest session
+            sessions = session.list_sessions()
+            if not sessions:
+                console.print("[red]❌ No sessions found.[/red]")
+                raise typer.Exit(1)
+            # Latest session is first if sorted (session.py doesn't sort, so we do it here or assume latest)
+            sessions.sort(key=lambda s: s["started_at"], reverse=True)
+            session_id = sessions[0]["session_id"]
+            console.print(f"[dim]Using latest session: {session_id}[/dim]")
+
+        # 2. Extract context (Scaffold)
+        console.print(f"[dim]Analyzing last {lines} lines...[/dim]")
+        
+        # 3. Dummy response
+        if question:
+            console.print(f"\n[bold]💬 Question:[/bold] {question}")
+            console.print("\n[yellow]AI Response (Scaffold):[/yellow]")
+            console.print("I see you're asking about the session. I'll be able to answer specifically once Gemini integration is complete!")
+        else:
+            console.print("\n[yellow]AI Suggestion (Scaffold):[/yellow]")
+            console.print("It looks like you want a general fix. I'll analyze the logs for errors once Gemini integration is complete!")
+
+    except Exception as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()
