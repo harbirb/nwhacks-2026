@@ -21,6 +21,7 @@ IMPORTANT:
 - IGNORE these previous Q&A interactions and CLI meta-text. 
 - Focus ONLY on the actual shell commands and system outputs that occurred before the most recent `fixtrace` invocation.
 - Do not analyze `fixtrace` commands themselves unless the user specifically asks about them.
+- SAFETY: Do not recommend `sudo` commands unless absolutely necessary. Prioritize safe, non-destructive commands.
 """
 
 SUGGESTION_PROMPT = """
