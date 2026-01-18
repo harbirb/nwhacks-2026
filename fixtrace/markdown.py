@@ -98,7 +98,7 @@ def _generate_summary_with_gemini(session_log):
         
         prompt = GEMINI_PROMPT + session_log
         response = client.models.generate_content(
-            model='gemini-2.0-flash', 
+            model='gemini-2.5-flash', 
             contents=prompt
         )
         
