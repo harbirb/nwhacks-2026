@@ -154,38 +154,9 @@ def generate_markdown(session_id, session_dir, metadata, use_ai=False):
     if ai_summary:
         md_lines.append(ai_summary)
         md_lines.append("")
-        md_lines.append("---")
-        md_lines.append("")
     elif error:
         md_lines.append(f"> ⚠️ AI summary unavailable: {error}")
         md_lines.append("")
-    
-    # Commands and outputs (raw log)
-    md_lines.append("## Raw Session Log")
-    md_lines.append("")
-    
-    step_num = 0
-    for i, event in enumerate(events):
-        if event.get('type') == 'command':
-            step_num += 1
-            command = event.get('command', '')
-            md_lines.append(f"### Step {step_num}")
-            md_lines.append("")
-            md_lines.append("```bash")
-            md_lines.append(command)
-            md_lines.append("```")
-            md_lines.append("")
-            
-            # Look for output after this command
-            if i + 1 < len(events) and events[i + 1].get('type') == 'output':
-                output = events[i + 1].get('content', '')
-                if output:
-                    md_lines.append("**Output:**")
-                    md_lines.append("")
-                    md_lines.append("```")
-                    md_lines.append(output)
-                    md_lines.append("```")
-                    md_lines.append("")
     
     # Footer
     md_lines.append("---")
