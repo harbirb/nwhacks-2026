@@ -35,7 +35,12 @@ Rules:
 - Ignore duplicated commands unless they show a before/after fix.
 - Ignore shell noise, prompts, timestamps, and unrelated output.
 - Do NOT include secrets, tokens, credentials, or environment values.
-- If secrets appear, replace them with "[REDACTED]".
+- If secrets appear, replace them with descriptive placeholders like:
+  - API keys → [YOUR-API-KEY-HERE]
+  - Tokens → [YOUR-TOKEN-HERE]
+  - Passwords → [YOUR-PASSWORD-HERE]
+  - Database URLs → [YOUR-DATABASE-URL-HERE]
+  - Other secrets → [YOUR-SECRET-HERE]
 - Be factual: only infer causes if strongly supported by the session.
 - If the root cause is unclear, say "Root cause not definitively identified".
 - Use clear, simple language suitable for onboarding documentation.
