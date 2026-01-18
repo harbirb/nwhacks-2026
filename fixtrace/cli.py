@@ -161,6 +161,14 @@ def stop(force: bool = typer.Option(False, "--force", help="Force stop even if p
                 capture.kill_process_by_pid(pid)
                 console.print(f"[green]Session stopped.[/green]")
                 console.print(f"[dim]The original terminal will now process the output.[/dim]")
+                
+                # Wait a brief moment for the original process to handle cleanup
+                time.sleep(0.5)
+                
+                # Ensure PID file is gone. If the original process didn't clean it up, we do it here.
+                # This fixes the issue where 'start' might crash or hang and leave the PID file.
+                session.clear_active_pid()
+                
             except Exception as e:
                 if not force:
                     console.print(f"[red]❌ Error: Process not found. Use --force to clear the session anyway[/red]", err=True)
