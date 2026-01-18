@@ -15,7 +15,8 @@ You are provided with the raw text output from a terminal session.
 
 IMPORTANT: 
 - The logs may contain previous calls to `fixtrace ask` and your own previous responses. 
-- IGNORE these previous Q&A interactions. 
+- The logs may also contain CLI status messages like "Analyzing last 50 lines..." or "Asking AI...".
+- IGNORE these previous Q&A interactions and CLI meta-text. 
 - Focus ONLY on the actual shell commands and system outputs that occurred before the most recent `fixtrace` invocation.
 - Do not analyze `fixtrace` commands themselves unless the user specifically asks about them.
 """
