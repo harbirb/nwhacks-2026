@@ -104,7 +104,7 @@ def list_sessions():
                 metadata = json.load(f)
             
             # Check if complete
-            has_markdown = (session_dir / "README.md").exists()
+            has_markdown = (session_dir / "summary.md").exists()
             
             sessions.append({
                 "session_id": metadata["session_id"],

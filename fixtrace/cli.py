@@ -114,11 +114,12 @@ def start(
             console.print("[dim]Parsing session...[/dim]")
             parser.parse_raw_to_jsonl(raw_file, jsonl_file)
             
-            console.print("[dim]Generating documentation...[/dim]")
-            md_file = markdown.generate_markdown(session_id, session_dir, metadata)
+            console.print("[dim]Saving session...[/dim]")
+            md_file = markdown.generate_markdown(session_id, session_dir, metadata, use_ai=False)
             
             console.print(f"[green]✅ Session complete![/green]")
-            console.print(f"[cyan]Docs saved to: {md_file}[/cyan]")
+            console.print(f"[cyan]Session saved to: {md_file}[/cyan]")
+            console.print(f"[dim]Run [bold]fixtrace generate {session_id}[/bold] to generate an AI summary[/dim]")
         
     except RuntimeError as e:
         console.print(f"[red]❌ Error: {e}[/red]")
@@ -218,8 +219,8 @@ def generate(session_id: str = typer.Argument(..., help="Session ID to regenerat
             with open(metadata_file, 'r') as f:
                 metadata = json.load(f)
         
-        console.print("[dim]Generating documentation...[/dim]")
-        md_file = markdown.generate_markdown(session_id, session_dir, metadata)
+        console.print("[dim]Generating AI summary...[/dim]")
+        md_file = markdown.generate_markdown(session_id, session_dir, metadata, use_ai=True)
         
         console.print(f"[green]✅ Documentation regenerated[/green]")
         console.print(f"[cyan]Saved to: {md_file}[/cyan]")

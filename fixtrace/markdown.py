@@ -4,7 +4,12 @@ from pathlib import Path
 from datetime import datetime
 import json
 import os
+
+from dotenv import load_dotenv
 from google import genai
+
+# Load .env file from current directory or parent directories
+load_dotenv()
 
 
 GEMINI_PROMPT = """
@@ -93,7 +98,7 @@ def _generate_summary_with_gemini(session_log):
         
         prompt = GEMINI_PROMPT + session_log
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-2.0-flash', 
             contents=prompt
         )
         
@@ -102,8 +107,15 @@ def _generate_summary_with_gemini(session_log):
         return None, f"Gemini API error: {str(e)}"
 
 
-def generate_markdown(session_id, session_dir, metadata):
-    """Generate markdown documentation from captured session."""
+def generate_markdown(session_id, session_dir, metadata, use_ai=False):
+    """Generate markdown documentation from captured session.
+    
+    Args:
+        session_id: The session identifier
+        session_dir: Path to the session directory
+        metadata: Session metadata dict
+        use_ai: Whether to generate AI summary (default: False)
+    """
     
     jsonl_file = session_dir / "events.jsonl"
     markdown_file = session_dir / "summary.md"
@@ -121,8 +133,11 @@ def generate_markdown(session_id, session_dir, metadata):
     # Build session log for Gemini
     session_log = _build_session_log(events)
     
-    # Try to generate AI summary
-    ai_summary, error = _generate_summary_with_gemini(session_log)
+    # Try to generate AI summary only if requested
+    ai_summary = None
+    error = None
+    if use_ai:
+        ai_summary, error = _generate_summary_with_gemini(session_log)
     
     # Build markdown
     md_lines = []

@@ -6,43 +6,84 @@ from pathlib import Path
 from datetime import datetime
 
 
-def strip_ansi(text):
-    """Remove ANSI escape codes from text."""
-    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-    return ansi_escape.sub('', text)
+def clean_text(text):
+    """Remove ANSI escape codes and handle backspaces."""
+    # 1. Strip OSC sequences (Operating System Commands)
+    # Matches \x1B] ... \x07 or \x1B\
+    osc_escape = re.compile(r'\x1B\].*?(?:\x07|\x1B\\)')
+    text = osc_escape.sub('', text)
+
+    # 2. Strip standard ANSI escape sequences (CSI codes, etc.)
+    # Matches \x1B followed by [...] or other terminator
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    text = ansi_escape.sub('', text)
+    
+    # 3. Handle backspaces (common in raw terminal capture)
+    # If we encounter a backspace, remove the previous character
+    chars = []
+    for c in text:
+        if c == '\x08':
+            if chars:
+                chars.pop()
+        else:
+            chars.append(c)
+    
+    return "".join(chars)
 
 
 def parse_raw_to_jsonl(raw_file, jsonl_file):
     """Parse raw script output to JSONL events.
     
-    Simple approach: group lines by command prompts.
-    A prompt looks like: user@host:path$
+    Handles:
+    - zsh (%) and bash ($/#) prompts
+    - ANSI color stripping
+    - Backspace correction
+    - Command/Output grouping
     """
     
     with open(raw_file, 'r', encoding='utf-8', errors='ignore') as f:
         content = f.read()
     
-    # Strip ANSI codes
-    content = strip_ansi(content)
+    # Clean the raw content
+    content = clean_text(content)
     
-    # Split by common shell prompts
-    # This is a heuristic: look for lines ending with $ or #
     lines = content.split('\n')
     
     events = []
     current_command = None
     current_output = []
     
+    # Regex to detect prompts at the start of a line
+    # Matches:
+    # - standard: user@host:path$ 
+    # - zsh: path % 
+    # - simple: $ 
+    # It looks for a sequence ending in $, #, or % followed by whitespace
+    # We use a non-greedy match for the prefix to avoid capturing too much
+    prompt_re = re.compile(r'^.*?(?:[\w\.~/@:-]+)\s*[\$#%]\s+(.*)$')
+    
+    # Fallback for just a symbol prompt
+    simple_prompt_re = re.compile(r'^[\$#%]\s+(.*)$')
+
     for line in lines:
-        # Detect command line (ends with $ or #, or looks like a prompt)
-        if re.search(r'[\$#]\s*$', line.strip()):
-            # Save previous command if any
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Check for prompt
+        match = prompt_re.match(line) or simple_prompt_re.match(line)
+        
+        if match:
+            # We found a new command line
+            
+            # 1. Save the PREVIOUS command/output pair
             if current_command:
                 events.append({
                     "type": "command",
                     "timestamp": datetime.now().isoformat(),
-                    "command": current_command.strip(),
+                    "command": current_command,
                 })
+                # Only add output if there is something substantial
                 if current_output:
                     events.append({
                         "type": "output",
@@ -51,19 +92,27 @@ def parse_raw_to_jsonl(raw_file, jsonl_file):
                     })
                 current_output = []
             
-            # Extract command (remove prompt)
-            current_command = re.sub(r'.*[\$#]\s*', '', line)
+            # 2. Start the NEW command
+            # The regex capture group (1) contains the command text after the prompt
+            cmd_text = match.group(1).strip()
+            
+            # If the command is empty, it might be just a hit enter
+            current_command = cmd_text if cmd_text else " " 
+            
         else:
-            # This is output
-            if current_command is not None or line.strip():
+            # This line does not look like a prompt, assume it's output
+            # (Only if we have seen a command already, or just capture everything)
+            if current_command is not None:
                 current_output.append(line)
+            # If we haven't seen a command yet, it's probably pre-session noise or header
+            # We can ignore it or add it to a "header" event if we wanted.
     
-    # Save last command
+    # Save the LAST command/output pair
     if current_command:
         events.append({
             "type": "command",
             "timestamp": datetime.now().isoformat(),
-            "command": current_command.strip(),
+            "command": current_command,
         })
         if current_output:
             events.append({
