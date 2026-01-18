@@ -189,8 +189,10 @@ def list(
         table.add_column("Status", style="yellow")
         
         for sess in sessions:
+            session_dir = session.get_session_dir(sess["session_id"])
+            session_id_display = f"[link=file://{session_dir}]{sess['session_id']}[/link]"
             table.add_row(
-                sess["session_id"],
+                session_id_display,
                 sess["name"],
                 sess["started_at"][:19],
                 sess["status"],
@@ -292,6 +294,25 @@ def config(
         with open(config_file, 'w') as f:
             json.dump(config, f, indent=2)
         console.print(f"[green]✅ Set {key} to {value}[/green]")
+
+
+@app.command()
+def view(session_id: str = typer.Argument(..., help="Session ID to view folder")):
+    """Open session folder in Finder (macOS only)."""
+    try:
+        session_dir = session.get_session_dir(session_id)
+        
+        if not session_dir.exists():
+            console.print(f"[red]❌ Session not found: {session_id}[/red]")
+            raise typer.Exit(1)
+        
+        import subprocess
+        subprocess.run(["open", str(session_dir)])
+        console.print(f"[green]✅ Opened folder: {session_dir}[/green]")
+        
+    except Exception as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
