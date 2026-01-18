@@ -189,6 +189,9 @@ def list(
             console.print("[dim]No sessions match the filters[/dim]")
             return
         
+        # Sort by started time, newest first
+        sessions.sort(key=lambda s: s["started_at"], reverse=True)
+        
         table = Table(title="FixTrace Sessions")
         table.add_column("Session ID", style="cyan")
         table.add_column("Name", style="magenta", max_width=15, overflow="ellipsis")
@@ -197,6 +200,7 @@ def list(
         
         for sess in sessions:
             session_dir = session.get_session_dir(sess["session_id"])
+            # Hyperlink session ID to folder
             session_id_display = f"[link=file://{session_dir}]{sess['session_id']}[/link]"
             table.add_row(
                 session_id_display,
