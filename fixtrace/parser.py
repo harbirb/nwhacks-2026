@@ -7,38 +7,73 @@ from datetime import datetime
 
 
 def clean_text(text):
-    """Remove ANSI escape codes and handle backspaces.
+    """Remove ANSI escape codes, handle backspaces, and filter noise.
     
-    TODO: Add handling for spinner/progress bar animations that use CR (\r)
-    to overwrite lines. Currently, these might pollute the log with multiple
-    "frames" of the animation.
-    
-    Examples to filter:
-    - Docker pulls: ✔ f54f... Pull complete ... 0.4s
-    - Spinners: ⠙ Asking AI...
-    - Progress bars: [===>   ] 20%
+    Refactored to be safer:
+    - ANSI/OSC: Stripped.
+    - Backspaces: Handled.
+    - Carriage Returns (\r): Removed (not resolved) to avoid accidental text loss.
+    - Noise: Aggressively filtered by pattern.
     """
     # 1. Strip OSC sequences (Operating System Commands)
-    # Matches \x1B] ... \x07 or \x1B\
     osc_escape = re.compile(r'\x1B\].*?(?:\x07|\x1B\\)')
     text = osc_escape.sub('', text)
 
-    # 2. Strip standard ANSI escape sequences (CSI codes, etc.)
-    # Matches \x1B followed by [...] or other terminator
+    # 2. Strip standard ANSI escape sequences
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     text = ansi_escape.sub('', text)
     
-    # 3. Handle backspaces (common in raw terminal capture)
-    # If we encounter a backspace, remove the previous character
+    # 3. Handle backspaces
     chars = []
     for c in text:
         if c == '\x08':
-            if chars:
+            if chars and chars[-1] != '\n':
                 chars.pop()
         else:
             chars.append(c)
+    text = "".join(chars)
+
+    # 4. Filter Noise Lines
+    # We simply split by newline and filter. We do NOT attempt to resolve \r overwrites
+    # because it risks deleting valid commands if line-endings are messy.
+    # Instead, we rely on the noise_patterns to catch the junk.
+    lines = text.split('\n')
+    resolved_lines = []
     
-    return "".join(chars)
+    noise_patterns = [
+        "Asking AI...",
+        "Analyzing last",
+        "Using active session:",
+        "Using latest session:",
+        "Pulling from",
+        "Pull complete",
+        "Extracting",
+        "Downloading",
+        "Waiting",
+        "Verifying Checksum",
+        "Download complete"
+    ]
+    # Common spinner characters (Braille patterns)
+    spinner_chars = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+    for line in lines:
+        # Simple cleanup
+        line = line.replace('\r', '').strip()
+        
+        if not line:
+            continue
+
+        # Check for noise
+        is_noise = False
+        if any(pattern in line for pattern in noise_patterns):
+            is_noise = True
+        elif any(c in line for c in spinner_chars):
+            is_noise = True
+        
+        if not is_noise:
+            resolved_lines.append(line)
+    
+    return "\n".join(resolved_lines)
 
 
 def parse_raw_to_jsonl(raw_file, jsonl_file):

@@ -352,7 +352,7 @@ def view(session_id: str = typer.Argument(..., help="Session ID to view folder")
 @app.command()
 def ask(
     question: List[str] = typer.Argument(None, help="Specific question about the session"),
-    lines: int = typer.Option(50, "--lines", "-l", help="Number of recent terminal lines to include as context"),
+    lines: int = typer.Option(1000, "--lines", "-l", help="Number of recent terminal lines to include as context"),
 ):
     """Ask AI for help with the current session or a specific question."""
     try:
@@ -383,6 +383,12 @@ def ask(
 
         # 3. Clean context (strip ANSI)
         clean_content = parser.clean_text(raw_content)
+
+        # DEBUG: Save context to inspect sanitization
+        debug_file = session_dir / "debug_ai_context.txt"
+        with open(debug_file, "w") as f:
+            f.write(clean_content)
+        # console.print(f"[dim]Debug context saved to: {debug_file}[/dim]")
 
         # 4. Query AI via ai.py
         question_str = " ".join(question) if question else None
